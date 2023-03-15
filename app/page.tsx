@@ -46,12 +46,20 @@ export default function Home() {
             }
         );
 
+        joinChannel?.subscribe(
+            'loadingState',
+            (message: { isLoading: boolean }) => {
+                setIsShowLoading(message.isLoading);
+            }
+        );
+
         setChannel(joinChannel);
     };
 
     const sendToPresence = async () => {
         if (!userInput) return;
 
+        channel?.broadcast('loadingState', { isLoading: true });
         setIsShowLoading(true);
 
         try {
@@ -77,6 +85,7 @@ export default function Home() {
         }
 
         channel?.broadcast('message', { completedQuiz });
+        channel?.broadcast('loadingState', { isLoading: false });
         setUserInput('');
         setIsShowLoading(false);
     };
