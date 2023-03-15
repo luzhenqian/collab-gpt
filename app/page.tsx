@@ -81,6 +81,7 @@ export default function Home() {
             setCompletedQuiz(completedQuiz);
         } catch (error) {
             console.log(error);
+            channel?.broadcast('loadingState', { isLoading: false });
             setIsShowLoading(false);
         }
 
