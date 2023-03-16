@@ -16,6 +16,7 @@
     "@yomo/webtransport-polyfill": "1.0.4-alpha2",
     "eslint": "8.35.0",
     "eslint-config-next": "13.2.3",
+    "eventsource-parser": "^0.1.0",
     "next": "13.2.3",
     "react": "18.2.0",
     "react-dom": "18.2.0",

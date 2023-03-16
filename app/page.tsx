@@ -1,27 +1,15 @@
 'use client';
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { createPresence } from '@yomo/presence';
-import { openAiRequest } from '@/helper/openAiRequest';
 import { Loading } from '@/components/Loading';
-import styles from './page.module.css';
-
-type CompletedQuiz = {
-    askerId: string;
-    askerAvatar?: string;
-    askContent: string;
-    answererId: string;
-    answererRole: string;
-    answerContent: string;
-    finishReason: string;
-    remainedToken: number;
-    totalToken: number;
-};
 
 export default function Home() {
-    const [isShowLoading, setIsShowLoading] = useState<boolean>(false);
     const [channel, setChannel] = useState<any>(null);
+    const [messages, setMessages] = useState<Message[]>([]);
+    const [displayMessages, setDisplayMessages] = useState<Message[]>([]);
     const [userInput, setUserInput] = useState<string>('');
-    const [completedQuiz, setCompletedQuiz] = useState<CompletedQuiz[]>([]);
+    const [loadingState, setLoadingState] = useState<boolean>(false);
 
     const currentConnectId = (
         Math.floor(Math.random() * (99999 - 10000 + 1)) + 10000
@@ -40,55 +28,98 @@ export default function Home() {
         );
 
         joinChannel?.subscribe(
-            'message',
-            (message: { completedQuiz: CompletedQuiz[] }) => {
-                setCompletedQuiz(message.completedQuiz);
+            'chatInfo',
+            (message: { messages: Message[] }) => {
+                setDisplayMessages(message.messages);
             }
         );
 
         joinChannel?.subscribe(
             'loadingState',
             (message: { isLoading: boolean }) => {
-                setIsShowLoading(message.isLoading);
+                setLoadingState(message.isLoading);
             }
         );
 
         setChannel(joinChannel);
     };
 
-    const sendToPresence = async () => {
+    const submitInput = async () => {
         if (!userInput) return;
 
+        const updateMessages = [
+            ...messages,
+            { role: 'user' as const, content: userInput },
+        ];
+
+        setMessages(updateMessages);
+
+        channel?.broadcast('chatInfo', {
+            messages: updateMessages,
+        });
         channel?.broadcast('loadingState', { isLoading: true });
-        setIsShowLoading(true);
 
-        try {
-            const returnedData = await openAiRequest(userInput);
+        const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ message: userInput }),
+        });
 
-            const oneCompletedQuiz: CompletedQuiz = {
-                askerId: currentConnectId,
-                askContent: userInput,
-                answererId: returnedData.id,
-                answererRole: returnedData.choices[0].message.role,
-                answerContent: returnedData.choices[0].message.content,
-                finishReason: returnedData.choices[0].finish_reason,
-                remainedToken: returnedData.usage.completion_tokens,
-                totalToken: returnedData.usage.total_tokens,
-            };
-
-            completedQuiz.push(oneCompletedQuiz);
-
-            setCompletedQuiz(completedQuiz);
-        } catch (error) {
-            console.log(error);
+        if (!response.ok) {
             channel?.broadcast('loadingState', { isLoading: false });
-            setIsShowLoading(false);
+            return;
         }
 
-        channel?.broadcast('message', { completedQuiz });
+        const data = response.body;
+
+        if (!data) {
+            channel?.broadcast('loadingState', { isLoading: false });
+            return;
+        }
+
+        const reader = data.getReader();
+        const decoder = new TextDecoder();
+
+        let done = false;
+        let isFirst = true;
+
+        while (!done) {
+            const { value, done: doneReading } = await reader.read();
+            done = doneReading;
+            const chunkValue = decoder.decode(value);
+
+            if (isFirst) {
+                isFirst = false;
+                setMessages((messages) => [
+                    ...messages,
+                    { role: 'assistant', content: chunkValue },
+                ]);
+                channel?.broadcast('chatInfo', {
+                    messages: [
+                        ...messages,
+                        { role: 'assistant', content: chunkValue },
+                    ],
+                });
+            } else {
+                setMessages((messages) => {
+                    const lastMessage = messages[messages.length - 1];
+                    const updatedMessage = {
+                        ...lastMessage,
+                        content: lastMessage.content + chunkValue,
+                    };
+
+                    channel?.broadcast('chatInfo', {
+                        messages: [...messages.slice(0, -1), updatedMessage],
+                    });
+
+                    return [...messages.slice(0, -1), updatedMessage];
+                });
+            }
+        }
+
         channel?.broadcast('loadingState', { isLoading: false });
-        setUserInput('');
-        setIsShowLoading(false);
     };
 
     useEffect(() => {
@@ -101,42 +132,75 @@ export default function Home() {
     }, []);
 
     return (
-        <main className={styles.main}>
-            <Loading isShow={isShowLoading} />
-
-            <div className='flex flex-wrap items-center justify-center min-h-[50vh]'>
+        <main className='flex flex-col h-screen'>
+            <div className='flex-1 overflow-auto'>
                 <div className='w-full text-center text-gray-400 text-5xl sticky top-0 my-8'>
                     Presence real-time showcase
                 </div>
 
-                <div className='w-[75vw] h-[75vh] overflow-y-auto divide-y divide-gray-500'>
-                    {completedQuiz.map((item) => {
-                        return (
-                            <div key={item.answererId}>
-                                <div className='mb-4'>
-                                    <span>{item.askContent}</span>
-                                    <span className='float-right text-gray-400'>
-                                        {item.remainedToken}/{item.totalToken}
-                                    </span>
+                <div className='max-w-[800px] mx-auto'>
+                    <div className='flex flex-col rounded-lg px-2 border-neutral-300'>
+                        {displayMessages.map((message, index) => {
+                            return (
+                                <div
+                                    key={index}
+                                    className={`flex flex-col ${
+                                        message.role === 'assistant'
+                                            ? 'items-start'
+                                            : 'items-end'
+                                    }`}
+                                >
+                                    <div
+                                        className={`flex items-center ${
+                                            message.role === 'assistant'
+                                                ? 'bg-neutral-200 text-neutral-900'
+                                                : 'bg-blue-500 text-white'
+                                        } rounded-2xl px-3 py-2 max-w-[67%] whitespace-pre-wrap`}
+                                        style={{ overflowWrap: 'anywhere' }}
+                                    >
+                                        {message.content}
+                                    </div>
                                 </div>
-                                <div>
-                                    <span>{item.answerContent}</span>
+                            );
+                        })}
+                    </div>
+
+                    {loadingState && (
+                        <div className='my-1 sm:my-1.5'>
+                            <div className='flex flex-col flex-start'>
+                                <div
+                                    className='flex items-center bg-neutral-200 text-neutral-900 rounded-2xl px-4 py-2 w-fit'
+                                    style={{
+                                        overflowWrap: 'anywhere',
+                                    }}
+                                >
+                                    <Loading isShow={loadingState} />
                                 </div>
                             </div>
-                        );
-                    })}
-                </div>
+                        </div>
+                    )}
 
-                <div className='absolute bottom-[5vh]'>
-                    <input
-                        className={styles.input}
-                        placeholder='Write a message'
-                        value={userInput}
-                        onChange={(e) => setUserInput(e.target.value)}
-                    />
-                    <button className={styles.button} onClick={sendToPresence}>
-                        Send
-                    </button>
+                    <div className='relative'>
+                        <textarea
+                            className='min-h-[44px] rounded-lg pl-4 pr-12 py-2 w-full focus:outline-none focus:ring-1 focus:ring-neutral-300 border-2 border-neutral-200'
+                            style={{ resize: 'none' }}
+                            placeholder='Type a message...'
+                            value={userInput}
+                            rows={1}
+                            onChange={(e) => {
+                                setUserInput(e.target.value);
+                            }}
+                        />
+                        <button onClick={submitInput} disabled={loadingState}>
+                            <Image
+                                src={'/arrow-up.svg'}
+                                alt='send'
+                                width={24}
+                                height={24}
+                                className='absolute right-2 bottom-3 h-8 w-8 hover:cursor-pointer rounded-full p-1 bg-blue-500 text-white hover:opacity-80'
+                            />
+                        </button>
+                    </div>
                 </div>
             </div>
         </main>
