@@ -182,7 +182,7 @@ export default function Home() {
 
     return (
         <main>
-            <div className='flex flex-col h-screen overflow-auto items-center w-2/3 mx-auto'>
+            <div className='flex flex-col h-screen overflow-auto items-center w-2/3 max-w-[800px] mx-auto'>
                 <div className='text-gray-400 text-3xl sticky top-0 my-8'>
                     Presence real-time showcase
                 </div>
