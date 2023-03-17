@@ -1,8 +1,8 @@
 'use client';
-import { useState, useEffect } from 'react';
+import {useState, useEffect} from 'react';
 import Image from 'next/image';
-import { createPresence } from '@yomo/presence';
-import { Loading } from '@/components/Loading';
+import {createPresence} from '@yomo/presence';
+import {Loading} from '@/components/Loading';
 
 export default function Home() {
     const [channel, setChannel] = useState<any>(null);
@@ -49,7 +49,7 @@ export default function Home() {
 
         const updateMessages = [
             ...messages,
-            { role: 'user' as const, content: userInput },
+            {role: 'user' as const, content: userInput},
         ];
 
         setMessages(updateMessages);
@@ -57,25 +57,25 @@ export default function Home() {
         channel?.broadcast('chatInfo', {
             messages: updateMessages,
         });
-        channel?.broadcast('loadingState', { isLoading: true });
+        channel?.broadcast('loadingState', {isLoading: true});
 
         const response = await fetch('/api/chat', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ message: userInput }),
+            body: JSON.stringify({message: userInput}),
         });
 
         if (!response.ok) {
-            channel?.broadcast('loadingState', { isLoading: false });
+            channel?.broadcast('loadingState', {isLoading: false});
             return;
         }
 
         const data = response.body;
 
         if (!data) {
-            channel?.broadcast('loadingState', { isLoading: false });
+            channel?.broadcast('loadingState', {isLoading: false});
             return;
         }
 
@@ -86,7 +86,7 @@ export default function Home() {
         let isFirst = true;
 
         while (!done) {
-            const { value, done: doneReading } = await reader.read();
+            const {value, done: doneReading} = await reader.read();
             done = doneReading;
             const chunkValue = decoder.decode(value);
 
@@ -94,12 +94,12 @@ export default function Home() {
                 isFirst = false;
                 setMessages((messages) => [
                     ...messages,
-                    { role: 'assistant', content: chunkValue },
+                    {role: 'assistant', content: chunkValue},
                 ]);
                 channel?.broadcast('chatInfo', {
                     messages: [
                         ...messages,
-                        { role: 'assistant', content: chunkValue },
+                        {role: 'assistant', content: chunkValue},
                     ],
                 });
             } else {
@@ -119,7 +119,7 @@ export default function Home() {
             }
         }
 
-        channel?.broadcast('loadingState', { isLoading: false });
+        channel?.broadcast('loadingState', {isLoading: false});
     };
 
     useEffect(() => {
@@ -132,19 +132,19 @@ export default function Home() {
     }, []);
 
     return (
-        <main className='flex flex-col h-screen'>
-            <div className='flex-1 overflow-auto'>
-                <div className='w-full text-center text-gray-400 text-5xl sticky top-0 my-8'>
+        <main>
+            <div className='flex flex-col h-screen overflow-auto items-center w-2/3 mx-auto'>
+                <div className='text-gray-400 text-5xl sticky top-0 my-8'>
                     Presence real-time showcase
                 </div>
 
-                <div className='max-w-[800px] mx-auto'>
-                    <div className='flex flex-col rounded-lg px-2 border-neutral-300'>
+                <div className='w-1/2 p-4 h-[80vh] overflow-y-auto'>
+                    <div className='flex flex-col rounded-lg border-neutral-300'>
                         {displayMessages.map((message, index) => {
                             return (
                                 <div
                                     key={index}
-                                    className={`flex flex-col ${
+                                    className={`flex flex-col m-1 ${
                                         message.role === 'assistant'
                                             ? 'items-start'
                                             : 'items-end'
@@ -155,8 +155,8 @@ export default function Home() {
                                             message.role === 'assistant'
                                                 ? 'bg-neutral-200 text-neutral-900'
                                                 : 'bg-blue-500 text-white'
-                                        } rounded-2xl px-3 py-2 max-w-[67%] whitespace-pre-wrap`}
-                                        style={{ overflowWrap: 'anywhere' }}
+                                        } rounded-2xl px-4 py-2 max-w-[67%] whitespace-pre-wrap`}
+                                        style={{overflowWrap: 'anywhere'}}
                                     >
                                         {message.content}
                                     </div>
@@ -166,7 +166,7 @@ export default function Home() {
                     </div>
 
                     {loadingState && (
-                        <div className='my-1 sm:my-1.5'>
+                        <div className='m-1'>
                             <div className='flex flex-col flex-start'>
                                 <div
                                     className='flex items-center bg-neutral-200 text-neutral-900 rounded-2xl px-4 py-2 w-fit'
@@ -174,33 +174,33 @@ export default function Home() {
                                         overflowWrap: 'anywhere',
                                     }}
                                 >
-                                    <Loading isShow={loadingState} />
+                                    <Loading isShow={loadingState}/>
                                 </div>
                             </div>
                         </div>
                     )}
+                </div>
 
-                    <div className='relative'>
-                        <textarea
-                            className='min-h-[44px] rounded-lg pl-4 pr-12 py-2 w-full focus:outline-none focus:ring-1 focus:ring-neutral-300 border-2 border-neutral-200'
-                            style={{ resize: 'none' }}
-                            placeholder='Type a message...'
-                            value={userInput}
-                            rows={1}
-                            onChange={(e) => {
-                                setUserInput(e.target.value);
-                            }}
+                <div className='flex flex-nowrap items-center justify-center relative w-1/2 my-8'>
+                    <textarea
+                        className='min-h-12 rounded-lg p-2 w-full focus:outline-none focus:ring-1 focus:ring-neutral-300 border-2 border-neutral-200'
+                        style={{resize: 'none'}}
+                        placeholder='Type a message...'
+                        value={userInput}
+                        rows={1}
+                        onChange={(e) => {
+                        setUserInput(e.target.value);
+                    }}
+                    />
+                    <button onClick={submitInput} disabled={loadingState} className='absolute right-2'>
+                        <Image
+                            src={'/arrow-up.svg'}
+                            alt='send arrow'
+                            width={32}
+                            height={32}
+                            className='hover:cursor-pointer rounded-full p-1 bg-blue-500 text-white hover:opacity-80'
                         />
-                        <button onClick={submitInput} disabled={loadingState}>
-                            <Image
-                                src={'/arrow-up.svg'}
-                                alt='send'
-                                width={24}
-                                height={24}
-                                className='absolute right-2 bottom-3 h-8 w-8 hover:cursor-pointer rounded-full p-1 bg-blue-500 text-white hover:opacity-80'
-                            />
-                        </button>
-                    </div>
+                    </button>
                 </div>
             </div>
         </main>
