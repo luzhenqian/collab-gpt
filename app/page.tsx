@@ -250,7 +250,7 @@ export default function Home() {
                     />
                     <button
                         onClick={submitInput}
-                        disabled={loadingState || true}
+                        disabled={loadingState}
                         // disabled={loadingState || !!inputState?.name}
                         className='absolute right-2'
                         // style={{ color: inputState?.color }}
