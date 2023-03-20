@@ -3,7 +3,7 @@ import { openAIStream } from "@/helper/openAIStream";
 export const config = {
   runtime: "edge",
 };
-export async function POST(req: Request) {
+export const POST = async (req: Request) => {
   try {
     const { message } = await req.json();
     const stream = await openAIStream(message);
@@ -14,4 +14,4 @@ export async function POST(req: Request) {
     console.log(e);
     return new Response("Error", { status: 500 });
   }
-}
+};
